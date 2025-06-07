@@ -114,10 +114,18 @@
 
 # root.mainloop()
 import tkinter as tk
-from tkinter import ttk
+from tkinter import ttk, simpledialog
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from tkinter import filedialog, messagebox
 import matplotlib.pyplot as plt
 import datetime
+import matplotlib.pyplot as plt
+import matplotlib.font_manager as fm
+
+# 한글 폰트 설정 (윈도우용)
+font_path = "C:/Windows/Fonts/malgun.ttf"  # 말굽고딕 폰트 경로
+fontprop = fm.FontProperties(fname=font_path).get_name()
+plt.rcParams['font.family'] = fontprop
 
 root = tk.Tk()
 root.title("여론조사 시각화")
@@ -131,10 +139,34 @@ candidate_a = [48, 42, 38, 40, 55]
 candidate_b = [32, 36, 44, 42, 30]
 candidate_c = [20, 19, 18, 16, 15]
 
+# 비교용 더미 데이터 (다른 기관 데이터라고 가정)
+compare_data = {
+    "갤럽": {
+        "candidate_a": [48, 42, 38, 40, 55],
+        "candidate_b": [32, 36, 44, 42, 30],
+        "candidate_c": [20, 19, 18, 16, 15],
+    },
+    "한국리서치": {
+        "candidate_a": [45, 44, 41, 39, 53],
+        "candidate_b": [34, 35, 40, 41, 32],
+        "candidate_c": [21, 21, 19, 20, 15],
+    },
+    "리얼미터": {
+        "candidate_a": [46, 43, 39, 41, 54],
+        "candidate_b": [33, 37, 42, 40, 31],
+        "candidate_c": [21, 20, 19, 19, 15],
+    },
+    "KSOI": {
+        "candidate_a": [47, 41, 37, 38, 52],
+        "candidate_b": [31, 34, 43, 43, 33],
+        "candidate_c": [22, 25, 20, 19, 15],
+    }
+}
+
 def show_frame(target):
     # 화면 크기 조절: 첫 번째 화면과 두 번째 화면 크기 다르게 설정
     if target == frame_selection:
-        root.geometry("600x600")
+        root.geometry("500x750")
     elif target == frame_result:
         root.geometry("600x900")  # 두 번째 화면 세로 좀 더 크게
     
@@ -142,6 +174,19 @@ def show_frame(target):
         frame.pack_forget()
     target.pack(pady=10, fill="both", expand=True)
 
+def on_share_click():
+    # 저장할 파일 경로를 다이얼로그로 선택
+    file_path = filedialog.asksaveasfilename(
+        defaultextension=".png",
+        filetypes=[("PNG 파일", "*.png"), ("모든 파일", "*.*")],
+        title="그래프 이미지 저장"
+    )
+    if file_path:
+        try:
+            fig.savefig(file_path)
+            messagebox.showinfo("저장 완료", f"그래프가 '{file_path}'에 저장되었습니다.")
+        except Exception as e:
+            messagebox.showerror("저장 실패", f"저장 중 오류가 발생했습니다:\n{e}")
 # 첫 화면
 frame_selection = tk.Frame(root, bg="#f0f4f8")
 
@@ -220,25 +265,36 @@ def show_popup(msg):
 
 ttk.Style().configure("TButton", font=("Malgun Gothic", 12), padding=6)
 
-# 첫 화면 버튼 색깔로 변경 (bg="#2a9d8f", fg="white")
-btn_style = {"bg": "#2a9d8f", "fg": "white", "activebackground": "#264653", "activeforeground": "white", "relief": "flat", "cursor": "hand2", "padx": 15, "pady": 8, "font": ("Malgun Gothic", 13, "bold")}
+btn_style = {"bg": "#2a9d8f", "fg": "white", "activebackground": "#264653", "activeforeground": "white",
+             "relief": "flat", "cursor": "hand2", "padx": 15, "pady": 8, "font": ("Malgun Gothic", 13, "bold")}
 
-btn_compare = tk.Button(btn_frame, text="비교모드", command=lambda: show_popup("비교모드 클릭"), **btn_style)
+# 기존 버튼들 중 북마크 제거하고 공유, 비교모드만 남김
+btn_compare = tk.Button(btn_frame, text="비교모드", command=lambda: open_compare_dialog(), **btn_style)
 btn_compare.pack(side=tk.LEFT, expand=True, fill='x', padx=6)
 
-btn_share = tk.Button(btn_frame, text="공유", command=lambda: show_popup("공유 클릭"), **btn_style)
+btn_share = tk.Button(btn_frame, text="공유", command=on_share_click, **btn_style)
 btn_share.pack(side=tk.LEFT, expand=True, fill='x', padx=6)
-
-btn_bookmark = tk.Button(btn_frame, text="북마크", command=lambda: show_popup("북마크 클릭"), **btn_style)
-btn_bookmark.pack(side=tk.LEFT, expand=True, fill='x', padx=6)
 
 all_frames = [frame_selection, frame_result]
 
-def draw_plot():
+def draw_plot(compare_agency=None):
     ax.clear()
-    ax.plot(dates, candidate_a, label="후보 A", color="#264653", linewidth=2.5)
-    ax.plot(dates, candidate_b, label="후보 B", color="#e76f51", linewidth=2.5)
-    ax.plot(dates, candidate_c, label="후보 C", color="#2a9d8f", linewidth=2.5)
+
+    # 원래 선택된 기관 데이터
+    agency = agency_var.get()
+    data = compare_data[agency]
+
+    ax.plot(dates, data["candidate_a"], label=f"{agency} 후보 A", color="#264653", linewidth=2.5)
+    ax.plot(dates, data["candidate_b"], label=f"{agency} 후보 B", color="#e76f51", linewidth=2.5)
+    ax.plot(dates, data["candidate_c"], label=f"{agency} 후보 C", color="#2a9d8f", linewidth=2.5)
+
+    # 비교 모드 켜져 있고, 비교 기관이 다르고 유효하면 추가 시각화
+    if compare_agency and compare_agency != agency and compare_agency in compare_data:
+        comp = compare_data[compare_agency]
+        ax.plot(dates, comp["candidate_a"], label=f"{compare_agency} 후보 A", color="#264653", linewidth=2.5, linestyle='dashed')
+        ax.plot(dates, comp["candidate_b"], label=f"{compare_agency} 후보 B", color="#e76f51", linewidth=2.5, linestyle='dashed')
+        ax.plot(dates, comp["candidate_c"], label=f"{compare_agency} 후보 C", color="#2a9d8f", linewidth=2.5, linestyle='dashed')
+
     ax.set_ylim(0, 60)
     ax.set_ylabel("지지율 (%)", fontsize=9, color="#264653")
     ax.set_xticks(dates)
@@ -246,29 +302,82 @@ def draw_plot():
     ax.legend(fontsize=9)
     ax.grid(axis='y', linestyle='--', alpha=0.6)
     fig.tight_layout()
+    canvas.draw()
 
-def generate_summary(agency, subject, period):
-    return (
+# 현재 비교 기관을 저장하는 변수
+current_compare_agency = None
+
+def generate_summary(agency, subject, period, compare_agency=None):
+    base_summary = (
         f"{agency}의 여론조사 결과에 따르면, {subject} 선거에서\n"
-        f"후보 A는 초반 하락세 이후 회복하며 최종 55%를 기록하였습니다.\n"
-        f"후보 B는 중반 상승 후 다시 하락했고, 후보 C는 지속적으로 하락하는 추세입니다.\n"
-        f"(조사 기간: 최근 {period})"
+        f"후보 A는 평균 {sum(compare_data[agency]['candidate_a'])//len(dates)}%, "
+        f"후보 B는 평균 {sum(compare_data[agency]['candidate_b'])//len(dates)}%, "
+        f"후보 C는 평균 {sum(compare_data[agency]['candidate_c'])//len(dates)}%의 지지율을 기록했습니다.\n"
+        f"조회 기간은 {period}입니다."
     )
+    if compare_agency and compare_agency != agency:
+        base_summary += f"\n비교 대상은 {compare_agency} 기관의 데이터입니다."
 
-def update_info_and_plot():
+    return base_summary
+
+def on_next_click():
+    global current_compare_agency
+    current_compare_agency = None  # 초기화
+
     agency = agency_var.get()
     subject = subject_cb.get()
     period = period_cb.get()
 
-    info_label.config(text=f"조사 기관: {agency}   |   선거 종류: {subject}   |   조회 기간: {period}")
+    info_label.config(text=f"기관: {agency} / 선거 종류: {subject} / 기간: {period}")
+    summary_label.config(text=generate_summary(agency, subject, period))
     draw_plot()
-    summary_text = generate_summary(agency, subject, period)
-    summary_label.config(text=summary_text)
-    canvas.draw()
 
-def on_next_click():
-    update_info_and_plot()
     show_frame(frame_result)
+
+def open_compare_dialog():
+    global current_compare_agency
+
+    compare_list = [a for a in agencies if a != agency_var.get()]
+    if not compare_list:
+        show_popup("비교할 기관이 없습니다.")
+        return
+
+    compare_win = tk.Toplevel(root)
+    compare_win.title("비교 기관 선택")
+    compare_win.geometry("320x260")  # 높이 늘림
+    compare_win.configure(bg="#e9f1f7")
+
+    title_label = tk.Label(compare_win, text="비교할 기관을 선택하세요:", font=("Malgun Gothic", 14, "bold"), bg="#e9f1f7", fg="#264653")
+    title_label.pack(pady=(20, 10))
+
+    selected_agency = tk.StringVar(value=compare_list[0])
+
+    rb_frame = tk.Frame(compare_win, bg="#e9f1f7")
+    rb_frame.pack(pady=(0, 20))
+
+    for ag in compare_list:
+        rb = tk.Radiobutton(rb_frame, text=ag, variable=selected_agency, value=ag,
+                            font=("Malgun Gothic", 12), bg="#e9f1f7", fg="#264653", activebackground="#e9f1f7",
+                            selectcolor="#a8dadc", cursor="hand2")
+        rb.pack(anchor='w', padx=20, pady=5)
+
+    def on_confirm():
+        nonlocal selected_agency
+        current_compare_agency = selected_agency.get()
+        info_label.config(text=f"기관: {agency_var.get()} / 비교 기관: {current_compare_agency}")
+        summary_label.config(text=generate_summary(agency_var.get(), subject_cb.get(), period_cb.get(), current_compare_agency))
+        draw_plot(current_compare_agency)
+        compare_win.destroy()
+
+    confirm_btn = tk.Button(compare_win, text="확인", font=("Malgun Gothic", 13, "bold"),
+                            bg="#2a9d8f", fg="white", activebackground="#264653", activeforeground="white",
+                            relief="flat", padx=15, pady=8, cursor="hand2", command=on_confirm)
+    confirm_btn.pack(pady=(0, 20), ipadx=10)
+
+def save_graph():
+    filename = f"poll_result_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
+    fig.savefig(filename)
+    show_popup(f"그래프를 '{filename}' 이름으로 저장했습니다.")
 
 show_frame(frame_selection)
 root.mainloop()
