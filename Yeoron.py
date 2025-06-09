@@ -1,5 +1,5 @@
-import tkinter as tk
 import pandas as pd
+import tkinter as tk
 from tkinter import ttk, simpledialog
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from tkinter import filedialog, messagebox
@@ -61,7 +61,7 @@ def generate_prompt(agency, subject, data, compare_agency=None):
 설명은 자연스럽고 간결하게 3~5문장으로 작성해주세요.
 """
     return prompt
-
+# 후보 이름 변환 (영문 키로 바꾸기)
 candidate_map = {
     "이재명": "이재명",
     "김문수": "김문수",
